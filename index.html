@@ -125,6 +125,7 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
 #errbox{display:none;margin-top:16px}
 #keybox{display:none;max-width:380px;margin:80px auto;text-align:center}
 #keybox input{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;margin:14px 0;text-align:center;font-family:var(--num)}
+.shime{display:inline-block;font-size:10px;font-weight:700;color:var(--faint);border:1px solid var(--line2);border-radius:6px;padding:1px 7px;margin-left:8px;letter-spacing:.05em}
 </style>
 </head>
 <body>
@@ -152,7 +153,7 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
   <div class="empty" id="errbox"><div class="t">データを取得できませんでした</div><span id="errmsg"></span><br><br><button class="btn" onclick="location.reload()">再読み込み</button></div>
   <div id="app" style="display:none">
     <div class="notice"><span class="dot"></span><span id="syncInfo"></span></div>
-    <h2>今月のスコア <span class="scope" id="kpiScope"></span><span class="rule"></span></h2>
+    <h2>今月のスコア <span class="scope" id="kpiScope"></span><span id="kpiShime"></span><span class="rule"></span></h2>
     <div class="kpis" id="kpiCards"></div>
     <h2>集客ファネル <span class="scope" id="funnelScope"></span><span class="rule"></span></h2>
     <div class="funnel" id="funnel"></div>
@@ -200,7 +201,7 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
       </div>
     </div>
     <footer style="color:var(--faint);font-size:11px;padding:30px 0 40px;text-align:center">
-      APLOM studio データダッシュボード — マスタースプシ更新後は🔄更新、または毎朝5時に自動反映
+      APLOM studio データダッシュボード
     </footer>
   </div>
 </main>
@@ -229,6 +230,7 @@ function yen(n){ return "¥" + Math.round(n).toLocaleString("ja-JP"); }
 function el(id){ return document.getElementById(id); }
 function studioLabel(){ return S.studio==="all"?"全体":S.studio+"校"; }
 function monthLabel(m){ return m ? m.slice(0,4)+"年"+Number(m.slice(5))+"月" : ""; }
+function isClosed(m){ return !!m && m < new Date().toISOString().slice(0,7); }
 
 function shape(data){
   S.raw = data;
@@ -239,12 +241,18 @@ function shape(data){
     K[r.kind][r.month][r.studio] = Number(r.val)||0;
   });
   S.K = K;
-  var ms = {};
+  var hako = {}, all = {};
   ["sales","new","trials","joins","churn"].forEach(function(k){
-    Object.keys(K[k]||{}).forEach(function(m){ if(m && m!=="now") ms[m]=1; });
+    Object.keys(K[k]||{}).forEach(function(m){ if(m && m!=="now"){ hako[m]=1; all[m]=1; } });
   });
-  S.months = Object.keys(ms).sort();
-  if(!S.month || S.months.indexOf(S.month)<0) S.month = S.months[S.months.length-1] || null;
+  ["ads_spend","ads_cv"].forEach(function(k){
+    Object.keys(K[k]||{}).forEach(function(m){ if(m && m!=="now") all[m]=1; });
+  });
+  S.months = Object.keys(all).sort();
+  if(!S.month || S.months.indexOf(S.month)<0){
+    var hk = Object.keys(hako).sort();
+    S.month = hk[hk.length-1] || S.months[S.months.length-1] || null;
+  }
   S.targets = {};
   (data.targets||[]).forEach(function(t){ S.targets[t.metric] = Number(t.target); });
   S.instructors = data.instructors||[];
@@ -274,6 +282,7 @@ function deltaHtml(cur, prev, unit, invert){
 function renderKPIs(){
   var m = S.month, pm = prevMonth(m), st = S.studio;
   el("kpiScope").textContent = monthLabel(m)+"・"+studioLabel();
+  el("kpiShime").innerHTML = isClosed(m) ? '<span class="shime">〆 実績確定</span>' : '<span class="shime" style="color:var(--ok);border-color:var(--ok)">集計中</span>';
   var sales=V("sales",m,st), nw=V("new",m,st), tr=V("trials",m,st), ch=V("churn",m,st);
   var active = V("active","now",st);
   var close = tr? Math.round(nw/tr*1000)/10 : null;
@@ -354,13 +363,7 @@ function svgCombo(elx, labels, bars, line, barColor, lineColor, fmtL, fmtR){
   s+='</svg>';
   elx.innerHTML=s;
 }
-function allMonths(){
-  var ms={};
-  ["sales","new","trials","joins","churn","ads_spend"].forEach(function(k){
-    Object.keys(S.K[k]||{}).forEach(function(m){ if(m&&m!=="now") ms[m]=1; });
-  });
-  return Object.keys(ms).sort();
-}
+function allMonths(){ return S.months; }
 function renderCharts(){
   var ms=allMonths(), st=S.studio;
   var lbl=ms.map(function(m){return m.slice(2).replace("-","/");});
@@ -413,14 +416,13 @@ function renderAll(){
 function renderMonthSel(){
   var sel = el("monthSel");
   sel.innerHTML = S.months.map(function(m){
-    return '<option value="'+m+'"'+(m===S.month?" selected":"")+'>'+monthLabel(m)+'</option>';
+    return '<option value="'+m+'"'+(m===S.month?" selected":"")+'>'+monthLabel(m)+(isClosed(m)?" 〆":"")+'</option>';
   }).join("");
 }
 function renderSyncInfo(){
   var ls = S.raw && S.raw.last_sync;
   var t = ls && ls.finished_at ? new Date(ls.finished_at) : null;
-  el("syncInfo").innerHTML = "最終取り込み: <b>" + (t? t.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "—") + "</b>"
-    + " ・ 毎朕5時に自動取り込み ・ マスタを更新したら右上の🔄更新";
+  el("syncInfo").innerHTML = "最終取り込み: <b>" + (t? t.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "—") + "</b>";
 }
 function load(first){
   return fetch(API+"?key="+encodeURIComponent(KEY)).then(function(r){return r.json();}).then(function(data){
@@ -464,7 +466,7 @@ el("syncBtn").addEventListener("click", function(){
   var btn = this;
   if(btn.disabled) return;
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 取り込み中…';
-  function restore(){ btn.disabled=false; btn.innerHTML="\ud83d\udd04 更新"; }
+  function restore(){ btn.disabled=false; btn.innerHTML="🔄 更新"; }
   fetch(SYNC, {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})
     .then(function(r){return r.json();})
     .then(function(res){
@@ -532,7 +534,7 @@ function buildSystem(){
       広告経由体験CV:{田園調布:V("ads_cv",m,"田園調布"),本町:V("ads_cv",m,"本町")}
     };
   });
-  return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。' + String.fromCharCode(10) + String.fromCharCode(10) + 'KPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。' + String.fromCharCode(10) + '現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。' + String.fromCharCode(10) + String.fromCharCode(10) + 'データ:' + String.fromCharCode(10) + JSON.stringify(ctx) + String.fromCharCode(10) + String.fromCharCode(10) + '回答は3〜6文程度で。';
+  return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。\n\nKPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。\n現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。\n\nデータ:\n'+JSON.stringify(ctx)+'\n\n回答は3〜6文程度で。';
 }
 function addMsg(text, cls){
   var d=document.createElement("div"); d.className="msg "+cls; d.textContent=text;
