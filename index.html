@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APLOM studio — データダッシュボード</title>
+<style>
+:root{
+  --bg:#131118; --panel:#1d1a24; --panel2:#262230; --line:#332f3d; --line2:#413c4d;
+  --text:#f2eff6; --muted:#a29aae; --faint:#736b80;
+  --rose:#e89a8d; --rose-dim:#e89a8d33;
+  --ok:#84c796; --ok-dim:#84c79622;
+  --warn:#e5c66f; --warn-dim:#e5c66f22;
+  --bad:#e08383; --bad-dim:#e0838322;
+  --violet:#a48fd8;
+  --serif:"Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  --num:"Avenir Next","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+button{font-family:var(--sans)}
+header{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(19,17,24,.94);backdrop-filter:blur(10px);z-index:30}
+.hd{display:flex;align-items:center;gap:10px;padding:12px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:9px}
+.brand .name{font-family:var(--serif);font-size:19px;letter-spacing:.13em}
+.brand .sub{color:var(--faint);font-size:10px;letter-spacing:.18em}
+.spacer{flex:1}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}
+.seg button{background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:600;padding:7px 13px;cursor:pointer;border-radius:8px}
+.seg button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line2)}
+select{background:var(--panel);border:1px solid var(--line);border-radius:11px;color:var(--text);font-family:var(--sans);font-size:12.5px;font-weight:600;padding:8px 12px;cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:11px;color:var(--text);font-size:12.5px;font-weight:600;padding:8px 14px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--rose);color:#2a1512;border-color:var(--rose)}
+.btn:disabled{opacity:.5;cursor:default}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #2a151255;border-top-color:#2a1512;border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.notice{display:flex;gap:9px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 14px;margin:14px 0 0;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+.notice b{color:var(--text)}
+h2{font-family:var(--serif);font-weight:500;font-size:16px;letter-spacing:.12em;margin:30px 0 12px;display:flex;align-items:baseline;gap:12px}
+h2 .scope{color:var(--faint);font-size:11.5px;font-family:var(--sans)}
+h2 .rule{flex:1;height:1px;background:var(--line);align-self:center}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px 13px}
+.kpi .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.kpi .label{color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.08em}
+.pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
+.pill.ok{color:var(--ok);background:var(--ok-dim)}
+.pill.warn{color:var(--warn);background:var(--warn-dim)}
+.pill.bad{color:var(--bad);background:var(--bad-dim)}
+.pill.na{color:var(--faint);background:var(--panel2)}
+.kpi .val{font-family:var(--num);font-size:31px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi .val small{font-size:14px;color:var(--muted);font-weight:500;margin-left:2px}
+.kpi .delta{font-size:11.5px;margin-top:2px;color:var(--faint)}
+.kpi .delta .up{color:var(--ok);font-weight:700}
+.kpi .delta .down{color:var(--bad);font-weight:700}
+.kpi .delta .flat{color:var(--muted);font-weight:700}
+.pbar{margin-top:10px;height:6px;background:var(--panel2);border-radius:99px;position:relative}
+.pbar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--rose);transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.pbar .goal{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--muted);border-radius:2px}
+.kpi .goal-label{color:var(--faint);font-size:10.5px;margin-top:6px}
+.funnel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.fstep{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
+.fstep .n{font-family:var(--num);font-size:23px;font-weight:600;font-variant-numeric:tabular-nums}
+.fstep .n small{font-size:12px;color:var(--muted)}
+.fstep .l{color:var(--muted);font-size:11px;font-weight:600}
+.fstep .r{color:var(--faint);font-size:10.5px;margin-top:3px}
+.fstep .r b{color:var(--rose)}
+.fstep:not(:last-child)::after{content:"→";position:absolute;right:-13px;top:50%;transform:translateY(-50%);color:var(--faint);z-index:2}
+@media(max-width:720px){.fstep:not(:last-child)::after{display:none}}
+.grid2{display:grid;grid-template-columns:1.45fr 1fr;gap:10px}
+@media(max-width:920px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px}
+.panel h3{font-size:12px;letter-spacing:.09em;color:var(--muted);font-weight:700;margin-bottom:4px}
+.panel .sub{color:var(--faint);font-size:11px;margin-bottom:12px}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg text{font-family:var(--num)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-weight:700;color:var(--faint);font-size:10.5px;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid #2a2733}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--num)}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;background:var(--panel2);color:var(--muted);font-size:11px;font-weight:700;margin-right:8px;font-family:var(--num)}
+tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
+.bar{position:relative;background:var(--panel2);border-radius:99px;height:8px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.pct{font-variant-numeric:tabular-nums;font-family:var(--num);font-weight:600;min-width:52px;text-align:right}
+.tag{display:inline-block;font-size:10px;color:var(--muted);border:1px solid var(--line);padding:1px 7px;border-radius:99px;margin-left:6px}
+.churn-chip{display:inline-block;min-width:26px;text-align:center;border-radius:7px;padding:2px 7px;font-family:var(--num);font-weight:600}
+.churn-0{background:var(--panel2);color:var(--faint)}
+.churn-1{background:var(--warn-dim);color:var(--warn)}
+.churn-2{background:var(--bad-dim);color:var(--bad)}
+.empty{border:1px dashed var(--line2);border-radius:13px;padding:30px;text-align:center;color:var(--muted)}
+.empty .t{font-family:var(--serif);font-size:15px;color:var(--text);margin-bottom:5px}
+.chat{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.chat .log{max-height:400px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:85%;padding:10px 14px;border-radius:13px;font-size:13.5px;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:var(--panel2);border:1px solid var(--line2)}
+.msg.ai{align-self:flex-start;background:var(--bg);border:1px solid var(--line)}
+.msg.ai.thinking{color:var(--muted);font-style:italic}
+.chat .in{display:flex;gap:8px;border-top:1px solid var(--line);padding:10px}
+.chat input{flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:11px 14px;font-size:14px;min-width:0;font-family:var(--sans)}
+.chat button.send{background:var(--rose);color:#2a1512;border:none;border-radius:10px;padding:0 22px;font-weight:700;cursor:pointer;font-size:13.5px}
+.chat button.send:disabled{opacity:.45}
+.chips{display:flex;gap:7px;flex-wrap:wrap;padding:0 16px 13px}
+.chips button{background:none;border:1px solid var(--line2);color:var(--muted);border-radius:99px;padding:6px 12px;font-size:11.5px;cursor:pointer}
+.chips button:hover{color:var(--text)}
+.overlay{position:fixed;inset:0;background:rgba(10,8,14,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:16px;width:100%;max-width:420px;padding:22px}
+.modal h3{font-family:var(--serif);font-size:16px;letter-spacing:.1em;margin-bottom:4px}
+.modal .sub{color:var(--faint);font-size:11.5px;margin-bottom:16px}
+.trow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.trow label{flex:1;color:var(--muted);font-size:12.5px}
+.trow input{width:130px;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;color:var(--text);padding:8px 10px;font-family:var(--num);font-size:13.5px;text-align:right}
+.trow .unit{color:var(--faint);font-size:11.5px;width:26px}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);color:var(--text);padding:11px 18px;border-radius:12px;font-size:13px;display:none;z-index:60;max-width:90vw}
+#loading{padding:70px 0;text-align:center;color:var(--muted)}
+#loading .ld{width:26px;height:26px;border:3px solid var(--line2);border-top-color:var(--rose);border-radius:50%;margin:0 auto 14px;animation:sp 0.8s linear infinite}
+#errbox{display:none;margin-top:16px}
+#keybox{display:none;max-width:380px;margin:80px auto;text-align:center}
+#keybox input{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;margin:14px 0;text-align:center;font-family:var(--num)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hd">
+    <div class="brand"><span class="name">APLOM studio</span><span class="sub">DASHBOARD</span></div>
+    <div class="spacer"></div>
+    <select id="monthSel" aria-label="表示月"></select>
+    <div class="seg" role="tablist" aria-label="校舎">
+      <button class="on" data-studio="all">全体</button>
+      <button data-studio="田園調布">田園調布校</button>
+      <button data-studio="本町">本町校</button>
+    </div>
+    <button class="btn" id="targetBtn">⚙ 目標設定</button>
+    <button class="btn primary" id="syncBtn">🔄 更新</button>
+  </div>
+</header>
+<main class="wrap">
+  <div id="keybox">
+    <div class="t" style="font-family:var(--serif);font-size:16px;letter-spacing:.1em">アクセスキーを入力してください</div>
+    <input id="keyInput" type="text" placeholder="アクセスキー" aria-label="アクセスキー">
+    <button class="btn primary" id="keyGo">開く</button>
+  </div>
+  <div id="loading"><div class="ld"></div>データを読み込んでいます…</div>
+  <div class="empty" id="errbox"><div class="t">データを取得できませんでした</div><span id="errmsg"></span><br><br><button class="btn" onclick="location.reload()">再読み込み</button></div>
+  <div id="app" style="display:none">
+    <div class="notice"><span class="dot"></span><span id="syncInfo"></span></div>
+    <h2>今月のスコア <span class="scope" id="kpiScope"></span><span class="rule"></span></h2>
+    <div class="kpis" id="kpiCards"></div>
+    <h2>集客ファネル <span class="scope" id="funnelScope"></span><span class="rule"></span></h2>
+    <div class="funnel" id="funnel"></div>
+    <h2>推移 <span class="scope" id="trendScope"></span><span class="rule"></span></h2>
+    <div class="grid2">
+      <div class="panel">
+        <h3>入会数 × 広告費</h3>
+        <div class="legend"><span><i style="background:var(--rose)"></i>入会数（人）</span><span><i style="background:var(--ok)"></i>広告費（円）</span></div>
+        <div id="trendChart"></div>
+      </div>
+      <div class="panel">
+        <h3>広告消化 × 体験予約CV</h3>
+        <div class="sub" id="adsSub"></div>
+        <div class="legend"><span><i style="background:var(--violet)"></i>消化金額</span><span><i style="background:var(--rose)"></i>体験予約CV（件）</span></div>
+        <div id="adsChart"></div>
+      </div>
+    </div>
+    <h2>先生別の実績 <span class="scope" id="staffScope"></span><span class="rule"></span></h2>
+    <div class="panel" id="staffPanel" style="padding:8px 16px">
+      <table id="staffTable">
+        <thead><tr>
+          <th>先生</th><th class="num">提供枠</th><th class="num">受講</th><th class="num">担当生徒</th><th style="width:34%">稼働率</th><th class="num">退会・休会<span class="tag">累計</span></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="staffEmpty" style="display:none">
+      <div class="t">この月のレッスンデータはありません</div>
+      マスタースプシに予約一覧・予約スケジュールを貼ると表示されます。
+    </div>
+    <h2>AIに質問 <span class="rule"></span></h2>
+    <div class="chat">
+      <div class="log" id="chatLog">
+        <div class="msg ai">こんにちは。ダッシュボードの全データをもとに答えます。何でも聞いてください。</div>
+      </div>
+      <div class="chips">
+        <button data-q="今月の業績を要約して、良い点と課題を教えて">今月の要約</button>
+        <button data-q="どの先生の枠を調整すべきか、データを根拠に教えて">枠の調整案</button>
+        <button data-q="広告費と入会数の関係を分析して、来月の広告予算を提案して">広告予算の提案</button>
+        <button data-q="退会の傾向と対策を教えて">退会の傾向と対策</button>
+      </div>
+      <div class="in">
+        <input id="chatInput" type="text" placeholder="質問を入力…" aria-label="AIへの質問">
+        <button class="send" id="chatSend">送信</button>
+      </div>
+    </div>
+    <footer style="color:var(--faint);font-size:11px;padding:30px 0 40px;text-align:center">
+      APLOM studio データダッシュボード — マスタースプシ更新後は🔄更新、または毎朝5時に自動反映
+    </footer>
+  </div>
+</main>
+<div class="overlay" id="targetOverlay">
+  <div class="modal">
+    <h3>目標設定</h3>
+    <div class="sub">月次目標を変更できます。保存すると全員のダッシュボードに反映されます。</div>
+    <div id="targetRows"></div>
+    <div class="actions">
+      <button class="btn" id="targetCancel">キャンセル</button>
+      <button class="btn primary" id="targetSave">保存</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+var BASE = "https://fzviwoukorjetsmetamb.supabase.co/functions/v1";
+var API = BASE + "/dashboard-data";
+var SYNC = BASE + "/sheet-sync";
+var AI = BASE + "/ai-chat";
+var KEY = new URLSearchParams(location.search).get("key") || "";
+
+var S = { raw:null, K:{}, months:[], month:null, studio:"all", targets:{}, instructors:[], churnByStaff:[] };
+function yen(n){ return "¥" + Math.round(n).toLocaleString("ja-JP"); }
+function el(id){ return document.getElementById(id); }
+function studioLabel(){ return S.studio==="all"?"全体":S.studio+"校"; }
+function monthLabel(m){ return m ? m.slice(0,4)+"年"+Number(m.slice(5))+"月" : ""; }
+
+function shape(data){
+  S.raw = data;
+  var K = {};
+  (data.kpis||[]).forEach(function(r){
+    K[r.kind] = K[r.kind] || {};
+    K[r.kind][r.month] = K[r.kind][r.month] || {};
+    K[r.kind][r.month][r.studio] = Number(r.val)||0;
+  });
+  S.K = K;
+  var ms = {};
+  ["sales","new","trials","joins","churn"].forEach(function(k){
+    Object.keys(K[k]||{}).forEach(function(m){ if(m && m!=="now") ms[m]=1; });
+  });
+  S.months = Object.keys(ms).sort();
+  if(!S.month || S.months.indexOf(S.month)<0) S.month = S.months[S.months.length-1] || null;
+  S.targets = {};
+  (data.targets||[]).forEach(function(t){ S.targets[t.metric] = Number(t.target); });
+  S.instructors = data.instructors||[];
+  S.churnByStaff = data.churn_by_staff||[];
+}
+function V(kind, month, studio){
+  var byM = (S.K[kind]||{})[month]||{};
+  if(studio==="all") return (byM["田園調布"]||0)+(byM["本町"]||0);
+  return byM[studio]||0;
+}
+function prevMonth(m){ var i=S.months.indexOf(m); return i>0 ? S.months[i-1] : null; }
+function instFor(month){
+  var pref = month+"-01";
+  return S.instructors.filter(function(r){ return String(r.month).slice(0,10)===pref; });
+}
+function pill(s,t){ return '<span class="pill '+s+'">'+t+'</span>'; }
+function progress(pct, goalPct){
+  var w = Math.max(0, Math.min(100, pct));
+  return '<div class="pbar"><div class="goal" style="left:'+goalPct+'%"></div><div class="fill" style="width:'+w+'%"></div></div>';
+}
+function deltaHtml(cur, prev, unit, invert){
+  if(prev==null) return "";
+  var d = cur-prev, cls = d===0?"flat":((d>0)!==!!invert?"up":"down");
+  var txt = (d>0?"+":"") + (unit==="yen"?yen(d):d.toLocaleString("ja-JP")+unit);
+  return '<div class="delta">前月比 <span class="'+cls+'">'+txt+'</span></div>';
+}
+function renderKPIs(){
+  var m = S.month, pm = prevMonth(m), st = S.studio;
+  el("kpiScope").textContent = monthLabel(m)+"・"+studioLabel();
+  var sales=V("sales",m,st), nw=V("new",m,st), tr=V("trials",m,st), ch=V("churn",m,st);
+  var active = V("active","now",st);
+  var close = tr? Math.round(nw/tr*1000)/10 : null;
+  var churnRate = active? Math.round(ch/active*1000)/10 : null;
+  var inst = instFor(m).filter(function(r){return r.slot_count>0;});
+  var slots=0, cslots=0;
+  inst.forEach(function(r){ slots+=r.slot_count; cslots+=r.checkin_slots; });
+  var util = slots? Math.round(cslots/slots*1000)/10 : null;
+  var T = S.targets;
+  var cards = [
+    {label:"売上（消化）", val:yen(sales),
+     status: T["売上"]? (sales>=T["売上"]?["ok","達成 "+Math.round(sales/T["売上"]*100)+"%"]:["warn",Math.round(sales/T["売上"]*100)+"%"]):["na","目標未設定"],
+     bar: T["売上"]?progress(sales/T["売上"]*100/1.4,100/1.4):"", goal:T["売上"]?"目標 "+yen(T["売上"]):"",
+     delta: pm!=null?deltaHtml(sales, V("sales",pm,st), "yen"):""},
+    {label:"契約中会員", val:active+'<small>人</small>', status:["na","最新スナップショット"], bar:"", goal:"", delta:""},
+    {label:"新規契約", val:nw+'<small>人</small>',
+     status: T["新規会員数"]? (nw>=T["新規会員数"]?["ok","達成"]:["warn",Math.round(nw/T["新規会員数"]*100)+"%"]):["na","—"],
+     bar: T["新規会員数"]?progress(nw/T["新規会員数"]*100/1.4,100/1.4):"", goal:T["新規会員数"]?"目標 "+T["新規会員数"]+"人":"",
+     delta: pm!=null?deltaHtml(nw, V("new",pm,st), "人"):""},
+    {label:"体験レッスン", val:tr+'<small>件</small>',
+     status: T["体験レッスン数"]? (tr>=T["体験レッスン数"]?["ok","達成"]:["warn",Math.round(tr/T["体験レッスン数"]*100)+"%"]):["na","—"],
+     bar: T["体験レッスン数"]?progress(tr/T["体験レッスン数"]*100/1.4,100/1.4):"", goal:T["体験レッスン数"]?"目標 "+T["体験レッスン数"]+"件":"",
+     delta: pm!=null?deltaHtml(tr, V("trials",pm,st), "件"):""},
+    {label:"成約率（体験→入会）", val: close==null?"—":close+'<small>%</small>',
+     status: close==null?["na","—"]:(T["成約率"]? (close>=T["成約率"]?["ok","達成"]:["warn","目標"+T["成約率"]+"%"]):["na","—"]),
+     bar: (close!=null&&T["成約率"])?progress(close/T["成約率"]*100/1.4,100/1.4):"", goal:T["成約率"]?"目標 "+T["成約率"]+"%":"", delta:""},
+    {label:"退会・解約率", val: churnRate==null? ch+'<small>人</small>' : ch+'<small>人 / '+churnRate+'%</small>',
+     status: churnRate==null?["na","—"]:(T["解約率"]? (churnRate<=T["解約率"]?["ok","基準内"]:["bad","超過"]):["na","—"]),
+     bar:"", goal:T["解約率"]?"基準 "+T["解約率"]+"%以下":"",
+     delta: pm!=null?deltaHtml(ch, V("churn",pm,st), "人", true):""},
+    {label:"稼働率", val: util==null?"—":util+'<small>%</small>',
+     status: util==null?["na","データなし"]:(util>=60?["ok","良好"]:util>=45?["warn","要改善"]:["bad","要対策"]),
+     bar: util==null?"":progress(util,60), goal: util==null?"":"目安 60%（チェックイン枠÷提供枠）", delta:""}
+  ];
+  var h="";
+  cards.forEach(function(c){
+    h += '<div class="kpi"><div class="top"><span class="label">'+c.label+'</span>'+pill(c.status[0],c.status[1])+'</div><div class="val">'+c.val+'</div>'+c.delta+c.bar+(c.goal?'<div class="goal-label">'+c.goal+'</div>':"")+'</div>';
+  });
+  el("kpiCards").innerHTML = h;
+}
+function renderFunnel(){
+  var m=S.month, st=S.studio;
+  var spend=V("ads_spend",m,st), lpv=V("ads_lpv",m,st), cv=V("ads_cv",m,st);
+  var tr=V("trials",m,st), nw=V("new",m,st);
+  var steps=[
+    {l:"広告費", n:yen(spend), r: cv?"体験CV単価 <b>"+yen(spend/cv)+"</b>":""},
+    {l:"LP閲覧", n:Math.round(lpv).toLocaleString("ja-JP"), r: lpv?"CV率 <b>"+(Math.round(cv/lpv*1000)/10)+"%</b>":""},
+    {l:"体験予約CV（広告経由）", n:Math.round(cv)+'<small>件</small>', r:"体験全体 "+tr+"件中"},
+    {l:"体験レッスン", n:tr+'<small>件</small>', r: tr?"成約率 <b>"+Math.round(nw/tr*100)+"%</b>":""},
+    {l:"新規入会", n:nw+'<small>人</small>', r:(nw&&spend)?"獲得単価 <b>"+yen(spend/nw)+"</b>":""}
+  ];
+  el("funnel").innerHTML = steps.map(function(s){
+    return '<div class="fstep"><div class="l">'+s.l+'</div><div class="n">'+s.n+'</div><div class="r">'+s.r+'</div></div>';
+  }).join("");
+  el("funnelScope").textContent = "広告 → 体験 → 入会（"+monthLabel(m)+"・"+studioLabel()+"）";
+}
+function svgCombo(elx, labels, bars, line, barColor, lineColor, fmtL, fmtR){
+  var W=560,H=240,padL=46,padR=48,padT=12,padB=30,iw=W-padL-padR,ih=H-padT-padB;
+  var maxB=Math.max.apply(null,bars.concat([1]))*1.15, maxL=Math.max.apply(null,line.concat([1]))*1.15;
+  var n=labels.length, bw=Math.min(20, iw/Math.max(n,1)*0.5);
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img">';
+  for(var g=0;g<=3;g++){
+    var y=padT+ih-ih*g/3;
+    s+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#2a2733"/>';
+    s+='<text x="'+(padL-6)+'" y="'+(y+3)+'" font-size="9" fill="#736b80" text-anchor="end">'+fmtL(maxB*g/3)+'</text>';
+    s+='<text x="'+(W-padR+6)+'" y="'+(y+3)+'" font-size="9" fill="#736b80">'+fmtR(maxL*g/3)+'</text>';
+  }
+  var pts=[], step=Math.ceil(n/10);
+  for(var i=0;i<n;i++){
+    var cx=padL+iw*(i+0.5)/n, bh=ih*(bars[i]/maxB);
+    if(bars[i]>0) s+='<rect x="'+(cx-bw/2)+'" y="'+(padT+ih-bh)+'" width="'+bw+'" height="'+bh+'" rx="3.5" fill="'+barColor+'"/>';
+    pts.push([cx, padT+ih-ih*(line[i]/maxL), line[i]]);
+    if(i%step===0) s+='<text x="'+cx+'" y="'+(H-10)+'" font-size="9" fill="#736b80" text-anchor="middle">'+labels[i]+'</text>';
+  }
+  var path=""; pts.forEach(function(p,j){ path+=(j===0?"M":"L")+p[0].toFixed(1)+" "+p[1].toFixed(1)+" "; });
+  s+='<path d="'+path+'" fill="none" stroke="'+lineColor+'" stroke-width="2" stroke-linejoin="round"/>';
+  pts.forEach(function(p){ if(p[2]>0) s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="'+lineColor+'"/>'; });
+  s+='</svg>';
+  elx.innerHTML=s;
+}
+function allMonths(){
+  var ms={};
+  ["sales","new","trials","joins","churn","ads_spend"].forEach(function(k){
+    Object.keys(S.K[k]||{}).forEach(function(m){ if(m&&m!=="now") ms[m]=1; });
+  });
+  return Object.keys(ms).sort();
+}
+function renderCharts(){
+  var ms=allMonths(), st=S.studio;
+  var lbl=ms.map(function(m){return m.slice(2).replace("-","/");});
+  svgCombo(el("trendChart"), lbl,
+    ms.map(function(m){return V("joins",m,st);}),
+    ms.map(function(m){return V("ads_spend",m,st);}),
+    "#e89a8d", "#84c796",
+    function(v){return Math.round(v);}, function(v){return "¥"+Math.round(v/1000)+"k";});
+  svgCombo(el("adsChart"), lbl,
+    ms.map(function(m){return V("ads_spend",m,st);}),
+    ms.map(function(m){return V("ads_cv",m,st);}),
+    "#a48fd8aa", "#e89a8d",
+    function(v){return "¥"+Math.round(v/1000)+"k";}, function(v){return Math.round(v);});
+  var spend=V("ads_spend",S.month,st), cv=V("ads_cv",S.month,st);
+  el("adsSub").textContent = cv? monthLabel(S.month)+"の体験CV単価: "+yen(spend/cv)+"/件" : monthLabel(S.month)+"の広告経由CVはありません";
+  el("trendScope").textContent = ms.length? monthLabel(ms[0])+" 〜 "+monthLabel(ms[ms.length-1])+"・"+studioLabel() : "";
+}
+function renderStaff(){
+  var list = instFor(S.month);
+  var churnMap = {};
+  S.churnByStaff.forEach(function(r){ churnMap[r.main_instructor]=r.churned_members; });
+  el("staffScope").textContent = monthLabel(S.month)+"・稼働率順";
+  if(!list.length){ el("staffPanel").style.display="none"; el("staffEmpty").style.display="block"; return; }
+  el("staffPanel").style.display="block"; el("staffEmpty").style.display="none";
+  list.sort(function(a,b){ return (b.utilization_pct||0)-(a.utilization_pct||0); });
+  var names = {};
+  list.forEach(function(r){ names[r.staff_name]=1; });
+  Object.keys(churnMap).forEach(function(nm){
+    if(!names[nm]) list.push({staff_name:nm, slot_count:0, attended:0, checkin_slots:0, unique_members:0, utilization_pct:null});
+  });
+  var h="";
+  list.forEach(function(sv,i){
+    var u = sv.utilization_pct==null?null:Number(sv.utilization_pct);
+    var color = u==null?"":u>=60?"var(--ok)":u>=40?"var(--warn)":"var(--bad)";
+    var cn = churnMap[sv.staff_name]||0;
+    var cCls = cn===0?"churn-0":cn===1?"churn-1":"churn-2";
+    h += '<tr><td><span class="rank">'+(u!=null?(i+1):"–")+'</span>'+sv.staff_name+(u==null?'<span class="tag">枠なし</span>':"")+'</td>'
+      +'<td class="num">'+(sv.slot_count||"—")+'</td><td class="num">'+(sv.attended||"—")+'</td><td class="num">'+(sv.unique_members||"—")+'</td>'
+      +'<td>'+(u==null?'<span style="color:var(--faint)">—</span>':'<div style="display:flex;align-items:center;gap:10px"><div class="bar" style="flex:1"><i style="width:'+u+'%;background:'+color+'"></i></div><span class="pct">'+u+'%</span></div>')+'</td>'
+      +'<td class="num"><span class="churn-chip '+cCls+'">'+cn+'</span></td></tr>';
+  });
+  document.querySelector("#staffTable tbody").innerHTML = h;
+}
+function renderAll(){
+  try{renderKPIs();}catch(e){}
+  try{renderFunnel();}catch(e){}
+  try{renderCharts();}catch(e){}
+  try{renderStaff();}catch(e){}
+}
+function renderMonthSel(){
+  var sel = el("monthSel");
+  sel.innerHTML = S.months.map(function(m){
+    return '<option value="'+m+'"'+(m===S.month?" selected":"")+'>'+monthLabel(m)+'</option>';
+  }).join("");
+}
+function renderSyncInfo(){
+  var ls = S.raw && S.raw.last_sync;
+  var t = ls && ls.finished_at ? new Date(ls.finished_at) : null;
+  el("syncInfo").innerHTML = "最終取り込み: <b>" + (t? t.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "—") + "</b>"
+    + " ・ 毎朕5時に自動取り込み ・ マスタを更新したら右上の🔄更新";
+}
+function load(first){
+  return fetch(API+"?key="+encodeURIComponent(KEY)).then(function(r){return r.json();}).then(function(data){
+    if(!data.ok) throw new Error(data.error==="unauthorized"?"アクセスキーが正しくありません":data.error||"エラー");
+    shape(data);
+    renderMonthSel(); renderSyncInfo(); renderAll();
+    el("loading").style.display="none"; el("errbox").style.display="none";
+    el("app").style.display="block";
+  }).catch(function(e){
+    if(first){ el("loading").style.display="none"; el("errmsg").textContent=String(e && e.message || e); el("errbox").style.display="block"; }
+    else toast("データ取得に失敗しました");
+  });
+}
+if(!KEY){
+  el("loading").style.display="none";
+  el("keybox").style.display="block";
+  el("keyGo").addEventListener("click", function(){
+    var v = el("keyInput").value.trim();
+    if(v) location.search = "?key="+encodeURIComponent(v);
+  });
+  el("keyInput").addEventListener("keydown", function(e){ if(e.key==="Enter") el("keyGo").click(); });
+}else{
+  load(true);
+}
+var segBtns = document.querySelectorAll(".seg button");
+segBtns.forEach(function(b){
+  b.addEventListener("click", function(){
+    segBtns.forEach(function(x){x.classList.remove("on");});
+    b.classList.add("on");
+    S.studio = b.getAttribute("data-studio");
+    renderAll();
+  });
+});
+el("monthSel").addEventListener("change", function(){ S.month=this.value; renderAll(); });
+function toast(msg){
+  var t = el("toast");
+  t.textContent = msg; t.style.display="block";
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display="none"; }, 5000);
+}
+el("syncBtn").addEventListener("click", function(){
+  var btn = this;
+  if(btn.disabled) return;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 取り込み中…';
+  function restore(){ btn.disabled=false; btn.innerHTML="\ud83d\udd04 更新"; }
+  fetch(SYNC, {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      var added = 0, errs = [];
+      (res.imported||[]).forEach(function(sm){ added += Number(sm.new_rows_added)||0; if(sm.error) errs.push(sm.sheet); });
+      return load(false).then(function(){
+        toast(errs.length? "取り込み完了（新規"+added+"行）※一部エラー: "+errs.join(",") : "取り込み完了：新しいデータ "+added+" 行を反映しました");
+        restore();
+      });
+    })
+    .catch(function(){ toast("取り込みに失敗しました。少し待ってからもう一度お試しください。"); restore(); });
+});
+var TARGET_FIELDS = [
+  {metric:"売上", label:"売上（月次）", unit:"円"},
+  {metric:"新規会員数", label:"新規契約", unit:"人"},
+  {metric:"体験レッスン数", label:"体験レッスン", unit:"件"},
+  {metric:"成約率", label:"成約率", unit:"%"},
+  {metric:"解約率", label:"解約率（上限）", unit:"%"},
+  {metric:"既存客単価", label:"既存客単価", unit:"円"}
+];
+el("targetBtn").addEventListener("click", function(){
+  el("targetRows").innerHTML = TARGET_FIELDS.map(function(f){
+    var v = S.targets[f.metric]!=null ? S.targets[f.metric] : "";
+    return '<div class="trow"><label>'+f.label+'</label><input type="number" min="0" data-metric="'+f.metric+'" value="'+v+'"><span class="unit">'+f.unit+'</span></div>';
+  }).join("");
+  el("targetOverlay").classList.add("show");
+});
+el("targetCancel").addEventListener("click", function(){ el("targetOverlay").classList.remove("show"); });
+el("targetOverlay").addEventListener("click", function(e){ if(e.target===this) this.classList.remove("show"); });
+el("targetSave").addEventListener("click", function(){
+  var btn=this; btn.disabled=true; btn.textContent="保存中…";
+  var targets={};
+  document.querySelectorAll("#targetRows input").forEach(function(inp){
+    if(inp.value!=="") targets[inp.getAttribute("data-metric")]=Number(inp.value);
+  });
+  fetch(API, {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({key:KEY, action:"set_targets", targets:targets})})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok) throw new Error(res.error);
+      el("targetOverlay").classList.remove("show");
+      return load(false).then(function(){ toast("目標を保存しました"); });
+    })
+    .catch(function(){ toast("目標の保存に失敗しました"); })
+    .then(function(){ btn.disabled=false; btn.textContent="保存"; });
+});
+var chatLog=el("chatLog"), chatInput=el("chatInput"), chatSend=el("chatSend");
+var history=[];
+function buildSystem(){
+  var ctx = {
+    targets: S.targets,
+    monthly: {},
+    instructors_latest: instFor(S.month),
+    churn_by_staff: S.churnByStaff,
+    active_members: {"田園調布":V("active","now","田園調布"), "本町":V("active","now","本町")}
+  };
+  allMonths().forEach(function(m){
+    ctx.monthly[m] = {
+      売上:{田園調布:V("sales",m,"田園調布"),本町:V("sales",m,"本町")},
+      新規:{田園調布:V("new",m,"田園調布"),本町:V("new",m,"本町")},
+      入会:{田園調布:V("joins",m,"田園調布"),本町:V("joins",m,"本町")},
+      体験:{田園調布:V("trials",m,"田園調布"),本町:V("trials",m,"本町")},
+      退会:{田園調布:V("churn",m,"田園調布"),本町:V("churn",m,"本町")},
+      広告費:{田園調布:V("ads_spend",m,"田園調布"),本町:V("ads_spend",m,"本町")},
+      広告経由体験CV:{田園調布:V("ads_cv",m,"田園調布"),本町:V("ads_cv",m,"本町")}
+    };
+  });
+  return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。' + String.fromCharCode(10) + String.fromCharCode(10) + 'KPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。' + String.fromCharCode(10) + '現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。' + String.fromCharCode(10) + String.fromCharCode(10) + 'データ:' + String.fromCharCode(10) + JSON.stringify(ctx) + String.fromCharCode(10) + String.fromCharCode(10) + '回答は3〜6文程度で。';
+}
+function addMsg(text, cls){
+  var d=document.createElement("div"); d.className="msg "+cls; d.textContent=text;
+  chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight; return d;
+}
+function ask(q){
+  if(!q||!q.trim()||chatSend.disabled) return;
+  addMsg(q,"user"); history.push({role:"user",content:q});
+  chatInput.value=""; chatSend.disabled=true;
+  var th=addMsg("考えています…","ai thinking");
+  fetch(AI,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({key:KEY,system:buildSystem(),messages:history})})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    th.remove();
+    var t;
+    if(data.ok) t = data.text || "応答を取得できませんでした。";
+    else if(data.error==="api_key_missing") t = "AIチャットはまだ準備中です（管理者がキーを設定すると使えるようになります）。";
+    else t = "エラー: "+(data.error||"不明");
+    addMsg(t,"ai");
+    if(data.ok) history.push({role:"assistant",content:t}); else history.pop();
+    chatSend.disabled=false; chatInput.focus();
+  })
+  .catch(function(){
+    th.remove(); addMsg("通信エラーです。もう一度お試しください。","ai");
+    history.pop(); chatSend.disabled=false;
+  });
+}
+chatSend.addEventListener("click",function(){ask(chatInput.value);});
+chatInput.addEventListener("keydown",function(e){if(e.key==="Enter")ask(chatInput.value);});
+document.querySelectorAll(".chips button").forEach(function(b){
+  b.addEventListener("click",function(){ask(b.getAttribute("data-q"));});
+});
+</script>
+</body>
+</html>
