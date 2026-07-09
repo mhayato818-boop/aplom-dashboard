@@ -171,6 +171,12 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
         <div id="adsChart"></div>
       </div>
     </div>
+    <h2>会員数の推移 <span class="scope" id="memberScope"></span><span class="rule"></span></h2>
+    <div class="panel">
+      <div class="legend"><span><i style="background:#e89a8d"></i>登録ベース（入会−退会手続き）</span><span><i style="background:#84c796"></i>実態推定（直近60日以内に受講あり）</span></div>
+      <div id="memberChart"></div>
+      <div class="sub" style="margin-top:10px;margin-bottom:0">実態推定の直近1〜2ヶ月は、これから受講する分が未反映のため低めに出ます（暫定値）</div>
+    </div>
     <h2>先生別の実績 <span class="scope" id="staffScope"></span><span class="rule"></span></h2>
     <div class="panel" id="staffPanel" style="padding:8px 16px">
       <table id="staffTable">
@@ -363,6 +369,44 @@ function svgCombo(elx, labels, bars, line, barColor, lineColor, fmtL, fmtR){
   s+='</svg>';
   elx.innerHTML=s;
 }
+function svgLines(elx, labels, a, b, ca, cb){
+  var W=1120,H=230,padL=40,padR=16,padT=12,padB=28,iw=W-padL-padR,ih=H-padT-padB;
+  var mx=Math.max.apply(null,a.concat(b).concat([1]))*1.12;
+  var n=labels.length, step=Math.ceil(n/12);
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img">';
+  for(var g=0;g<=3;g++){
+    var y=padT+ih-ih*g/3;
+    s+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#2a2733"/>';
+    s+='<text x="'+(padL-6)+'" y="'+(y+3)+'" font-size="9" fill="#736b80" text-anchor="end">'+Math.round(mx*g/3)+'</text>';
+  }
+  function path(arr){
+    var p="";
+    for(var i=0;i<n;i++){
+      var cx=padL+iw*(i+0.5)/Math.max(n,1), cy=padT+ih-ih*(arr[i]/mx);
+      p+=(i===0?"M":"L")+cx.toFixed(1)+" "+cy.toFixed(1)+" ";
+    }
+    return p;
+  }
+  s+='<path d="'+path(a)+'" fill="none" stroke="'+ca+'" stroke-width="2.5" stroke-linejoin="round"/>';
+  s+='<path d="'+path(b)+'" fill="none" stroke="'+cb+'" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="1 0"/>';
+  for(var i=0;i<n;i++){
+    var cx=padL+iw*(i+0.5)/Math.max(n,1);
+    if(a[i]>0) s+='<circle cx="'+cx+'" cy="'+(padT+ih-ih*(a[i]/mx))+'" r="3" fill="'+ca+'"/>';
+    if(b[i]>0) s+='<circle cx="'+cx+'" cy="'+(padT+ih-ih*(b[i]/mx))+'" r="3" fill="'+cb+'"/>';
+    if(i%step===0) s+='<text x="'+cx+'" y="'+(H-8)+'" font-size="9" fill="#736b80" text-anchor="middle">'+labels[i]+'</text>';
+  }
+  s+='</svg>';
+  elx.innerHTML=s;
+}
+function renderMembersChart(){
+  var ms=allMonths(), st=S.studio;
+  var lbl=ms.map(function(m){return m.slice(2).replace("-","/");});
+  svgLines(el("memberChart"), lbl,
+    ms.map(function(m){return V("members",m,st);}),
+    ms.map(function(m){return V("members_est",m,st);}),
+    "#e89a8d", "#84c796");
+  el("memberScope").textContent = studioLabel();
+}
 function allMonths(){ return S.months; }
 function renderCharts(){
   var ms=allMonths(), st=S.studio;
@@ -411,6 +455,7 @@ function renderAll(){
   try{renderKPIs();}catch(e){}
   try{renderFunnel();}catch(e){}
   try{renderCharts();}catch(e){}
+  try{renderMembersChart();}catch(e){}
   try{renderStaff();}catch(e){}
 }
 function renderMonthSel(){
@@ -531,7 +576,9 @@ function buildSystem(){
       体験:{田園調布:V("trials",m,"田園調布"),本町:V("trials",m,"本町")},
       退会:{田園調布:V("churn",m,"田園調布"),本町:V("churn",m,"本町")},
       広告費:{田園調布:V("ads_spend",m,"田園調布"),本町:V("ads_spend",m,"本町")},
-      広告経由体験CV:{田園調布:V("ads_cv",m,"田園調布"),本町:V("ads_cv",m,"本町")}
+      広告経由体験CV:{田園調布:V("ads_cv",m,"田園調布"),本町:V("ads_cv",m,"本町")},
+      会員数登録ベース:{田園調布:V("members",m,"田園調布"),本町:V("members",m,"本町")},
+      会員数実態推定:{田園調布:V("members_est",m,"田園調布"),本町:V("members_est",m,"本町")}
     };
   });
   return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。\n\nKPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。\n現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。\n\nデータ:\n'+JSON.stringify(ctx)+'\n\n回答は3〜6文程度で。';
