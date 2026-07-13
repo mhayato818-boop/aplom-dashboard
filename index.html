@@ -165,9 +165,9 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
         <div id="trendChart"></div>
       </div>
       <div class="panel">
-        <h3>広告消化 × 体験予約CV</h3>
+        <h3>広告消化 × 体験数</h3>
         <div class="sub" id="adsSub"></div>
-        <div class="legend"><span><i style="background:var(--violet)"></i>消化金額</span><span><i style="background:var(--rose)"></i>体験予約CV（件）</span></div>
+        <div class="legend"><span><i style="background:var(--violet)"></i>消化金額</span><span><i style="background:var(--rose)"></i>体験数（件）</span></div>
         <div id="adsChart"></div>
       </div>
     </div>
@@ -334,9 +334,8 @@ function renderFunnel(){
   var spend=V("ads_spend",m,st), lpv=V("ads_lpv",m,st), cv=V("ads_cv",m,st);
   var tr=V("trials",m,st), nw=V("new",m,st);
   var steps=[
-    {l:"広告費", n:yen(spend), r: cv?"体験CV単価 <b>"+yen(spend/cv)+"</b>":""},
-    {l:"LP閲覧", n:Math.round(lpv).toLocaleString("ja-JP"), r: lpv?"CV率 <b>"+(Math.round(cv/lpv*1000)/10)+"%</b>":""},
-    {l:"体験予約CV（広告経由）", n:Math.round(cv)+'<small>件</small>', r:"体験全体 "+tr+"件中"},
+    {l:"広告費", n:yen(spend), r: (tr&&spend)?"体験単価 <b>"+yen(spend/tr)+"</b>":""},
+    {l:"LP閲覧", n:Math.round(lpv).toLocaleString("ja-JP"), r: (lpv&&tr)?"体験率 <b>"+(Math.round(tr/lpv*1000)/10)+"%</b>":""},
     {l:"体験レッスン", n:tr+'<small>件</small>', r: tr?"成約率 <b>"+Math.round(nw/tr*100)+"%</b>":""},
     {l:"新規入会", n:nw+'<small>人</small>', r:(nw&&spend)?"獲得単価 <b>"+yen(spend/nw)+"</b>":""}
   ];
@@ -418,11 +417,11 @@ function renderCharts(){
     function(v){return Math.round(v);}, function(v){return "¥"+Math.round(v/1000)+"k";});
   svgCombo(el("adsChart"), lbl,
     ms.map(function(m){return V("ads_spend",m,st);}),
-    ms.map(function(m){return V("ads_cv",m,st);}),
+    ms.map(function(m){return V("trials",m,st);}),
     "#a48fd8aa", "#e89a8d",
     function(v){return "¥"+Math.round(v/1000)+"k";}, function(v){return Math.round(v);});
-  var spend=V("ads_spend",S.month,st), cv=V("ads_cv",S.month,st);
-  el("adsSub").textContent = cv? monthLabel(S.month)+"の体験CV単価: "+yen(spend/cv)+"/件" : monthLabel(S.month)+"の広告経由CVはありません";
+  var spend=V("ads_spend",S.month,st), trN=V("trials",S.month,st);
+  el("adsSub").textContent = (trN&&spend)? monthLabel(S.month)+"の体験単価: "+yen(spend/trN)+"/件（体験＝広告成果として計算）" : monthLabel(S.month)+"は体験または広告費のデータがありません";
   el("trendScope").textContent = ms.length? monthLabel(ms[0])+" 〜 "+monthLabel(ms[ms.length-1])+"・"+studioLabel() : "";
 }
 function renderStaff(){
@@ -581,7 +580,7 @@ function buildSystem(){
       会員数実態推定:{田園調布:V("members_est",m,"田園調布"),本町:V("members_est",m,"本町")}
     };
   });
-  return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。\n\nKPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。\n現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。\n\nデータ:\n'+JSON.stringify(ctx)+'\n\n回答は3〜6文程度で。';
+  return 'あなたはバレエコアトレーニングスタジオ「APLOM studio」（田園調布校・本町校）の経営データアナリストです。以下の実データに基づき、日本語で簡潔に、数字を根拠に答えてください。データにないことは推測と明示するか「データにありません」と答えること。\n\nKPI定義: 稼働率=チェックイン枠÷提供枠 / 成約率=新規契約÷体験数 / 解約率=退会÷契約中会員。体験レッスンは基本的に広告経由とみなし、体験単価=広告費÷体験数で評価する（Meta計測のCVは参考値）。\n現在の表示: '+monthLabel(S.month)+'・'+studioLabel()+'。\n\nデータ:\n'+JSON.stringify(ctx)+'\n\n回答は3〜6文程度で。';
 }
 function addMsg(text, cls){
   var d=document.createElement("div"); d.className="msg "+cls; d.textContent=text;
