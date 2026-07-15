@@ -190,6 +190,19 @@ tr:first-child .rank{background:var(--rose-dim);color:var(--rose)}
       <div class="t">この月のレッスンデータはありません</div>
       マスタースプシに予約一覧・予約スケジュールを貼ると表示されます。
     </div>
+    <h2>体験フォロー：未入会と想定インセンティブ <span class="scope" id="incScope"></span><span class="rule"></span></h2>
+    <div class="panel" id="incPanel" style="padding:8px 16px">
+      <table id="incTable">
+        <thead><tr>
+          <th>講師</th><th class="num">体験担当</th><th class="num">入会</th><th class="num">未入会</th><th class="num">逃した想定額</th><th style="width:32%">未入会の方</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="sub" style="margin:10px 0 8px">プライベート: ¥9,000(成田/酒匂)・¥6,500(その他)／セミプラ・特別体験: 枠単位で1人¥4,000・2人¥6,000・3人以上¥8,000（枠の誰かが入会済みなら支払済み扱い）</div>
+    </div>
+    <div class="empty" id="incEmpty" style="display:none">
+      <div class="t">この月の体験データはありません</div>
+    </div>
     <h2>AIに質問 <span class="rule"></span></h2>
     <div class="chat">
       <div class="log" id="chatLog">
@@ -263,6 +276,7 @@ function shape(data){
   (data.targets||[]).forEach(function(t){ S.targets[t.metric] = Number(t.target); });
   S.instructors = data.instructors||[];
   S.churnByStaff = data.churn_by_staff||[];
+  S.trialInc = data.trial_incentive||[];
 }
 function V(kind, month, studio){
   var byM = (S.K[kind]||{})[month]||{};
@@ -450,12 +464,42 @@ function renderStaff(){
   });
   document.querySelector("#staffTable tbody").innerHTML = h;
 }
+function renderIncentive(){
+  var rows = S.trialInc.filter(function(r){
+    return r.month === S.month && (S.studio === "all" || r.studio === S.studio);
+  });
+  el("incScope").textContent = monthLabel(S.month)+"・"+studioLabel();
+  if(!rows.length){ el("incPanel").style.display="none"; el("incEmpty").style.display="block"; return; }
+  el("incPanel").style.display="block"; el("incEmpty").style.display="none";
+  var by = {};
+  rows.forEach(function(r){
+    var b = by[r.staff_name] = by[r.staff_name] || {t:0,j:0,n:0,amt:0,names:[]};
+    b.t++;
+    if(r.joined){ b.j++; }
+    else{
+      b.n++;
+      b.amt += Number(r.missed_amount)||0;
+      if(r.member_name) b.names.push(r.member_name);
+    }
+  });
+  var list = Object.keys(by).map(function(k){ var b=by[k]; b.name=k; return b; });
+  list.sort(function(a,b){ return b.amt - a.amt; });
+  var h = "";
+  list.forEach(function(b){
+    var names = b.names.length ? '<details><summary style="cursor:pointer;color:var(--muted);font-size:12px">'+b.names.length+'名を表示</summary><div style="font-size:12px;color:var(--muted);line-height:1.9;padding-top:4px">'+b.names.join("、")+'</div></details>' : '<span style="color:var(--faint)">—</span>';
+    h += '<tr><td>'+b.name+'</td><td class="num">'+b.t+'</td><td class="num">'+b.j+'</td><td class="num">'+b.n+'</td>'
+      +'<td class="num" style="color:'+(b.amt>0?"var(--warn)":"var(--faint)")+';font-weight:600">'+(b.amt>0?yen(b.amt):"—")+'</td>'
+      +'<td>'+names+'</td></tr>';
+  });
+  document.querySelector("#incTable tbody").innerHTML = h;
+}
 function renderAll(){
   try{renderKPIs();}catch(e){}
   try{renderFunnel();}catch(e){}
   try{renderCharts();}catch(e){}
   try{renderMembersChart();}catch(e){}
   try{renderStaff();}catch(e){}
+  try{renderIncentive();}catch(e){}
 }
 function renderMonthSel(){
   var sel = el("monthSel");
@@ -565,6 +609,14 @@ function buildSystem(){
     monthly: {},
     instructors_latest: instFor(S.month),
     churn_by_staff: S.churnByStaff,
+    trial_incentive_this_month: (function(){
+      var by={};
+      S.trialInc.filter(function(r){return r.month===S.month;}).forEach(function(r){
+        var b=by[r.staff_name]=by[r.staff_name]||{体験:0,入会:0,未入会:0,逃し想定額:0};
+        b.体験++; if(r.joined)b.入会++; else{b.未入会++; b.逃し想定額+=Number(r.missed_amount)||0;}
+      });
+      return by;
+    })(),
     active_members: {"田園調布":V("active","now","田園調布"), "本町":V("active","now","本町")}
   };
   allMonths().forEach(function(m){
